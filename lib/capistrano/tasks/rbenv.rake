@@ -2,8 +2,31 @@ def bundler_loaded?
   Gem::Specification::find_all_by_name('capistrano-bundler').any?
 end
 
+
+loaded = false
+
+def load_defaults
+  set :rbenv_path, -> {
+    rbenv_path = fetch(:rbenv_custom_path)
+    rbenv_path ||= if fetch(:rbenv_type, :user) == :system
+      "/usr/local/rbenv"
+    else
+      "~/.rbenv"
+    end
+  }
+
+
+  set :rbenv_ruby_dir, -> { "#{fetch(:rbenv_path)}/versions/#{fetch(:rbenv_ruby)}" }
+  set :rbenv_map_bins, %w{rake gem bundle ruby}
+  loaded = true
+end
+
 SSHKit.config.command_map = Hash.new do |hash, key|
-  var = fetch(:rbenv_map_bins) 
+
+  load_defaults unless loaded
+
+  var = fetch(:rbenv_map_bins)
+
   if var != nil and var.include?(key.to_s)
     prefix = "RBENV_ROOT=#{fetch(:rbenv_path)} RBENV_VERSION=#{fetch(:rbenv_ruby)} #{fetch(:rbenv_path)}/bin/rbenv exec"
     hash[key] = if bundler_loaded? && key.to_s != "bundle"
@@ -36,22 +59,5 @@ namespace :rbenv do
         exit 1
       end
     end
-  end
-end
-
-namespace :load do
-  task :defaults do
-
-    set :rbenv_path, -> {
-      rbenv_path = fetch(:rbenv_custom_path)
-      rbenv_path ||= if fetch(:rbenv_type, :user) == :system
-        "/usr/local/rbenv"
-      else
-        "~/.rbenv"
-      end
-    }
-
-    set :rbenv_ruby_dir, -> { "#{fetch(:rbenv_path)}/versions/#{fetch(:rbenv_ruby)}" }
-    set :rbenv_map_bins, %w{rake gem bundle ruby}
   end
 end
